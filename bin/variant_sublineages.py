@@ -36,27 +36,28 @@ def DescribeVariantTable(df_in):
 		if LineageMutations:
 			i = 0
 
-			LineageMutationsExamples += ' and additional '+str(len(LineageMutations.keys()))+' sub-lineages that fulfils the mutation criterium, e.g. '
+			LineageMutationsExamples += ' for '+str(len(LineageMutations.keys()))+' sub-lineages e.g.'
 			for lineage, mutations in LineageMutations.items():
 				mutations = mutations.split('+')
 
-				lineage.replace('any_pango_lineage','any pango lineage')
-
+				lineage = lineage.replace('any_pango_lineage','any pango lineage')
 				LineageMutationsExamples+= ' '+lineage+' with '+'+'.join(mutations)+','
-				#print(lineage)
-				#print(mutations)
+
 				i += 1
 
 				if i >= limit:
-					LineageMutationsExamples = LineageMutationsExamples.rstrip(',')+'.'
-					break 
+					LineageMutationsExamples = LineageMutationsExamples.rstrip(',')
+					break
 
-		print(LineageMutationsExamples)
+		VariantInfo = '\nVariant '+VirusVariant+ ' is classified by ECDC as a '+ECDCClassification+' and includes '+str(len(Sublineages))+ ' sub-lineages such as '+','.join(Sublineages[0:limit])
 
+		if LineageMutationsExamples:
 
+			VariantInfo += ',\nwith mutation criterium'+LineageMutationsExamples
 
+		VariantInfo += '.'
 
-
+		print(VariantInfo)
 
 if __name__ == "__main__":
 
