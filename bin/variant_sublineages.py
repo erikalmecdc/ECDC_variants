@@ -22,15 +22,15 @@ limit = 3
 
 #Describes the content of the table in detail from examples
 def DescribeVariantTable(df_in):
-	for VirusVariant in df.index:
+	for VirusVariant in df_in.index:
 
-		Sublineages = df.loc[VirusVariant,'included sub-lineages'].split('|')
-		ECDCClassification = df.loc[VirusVariant,'ECDCClassification']
+		Sublineages = df_in.loc[VirusVariant,'included sub-lineages'].split('|')
+		ECDCClassification = df_in.loc[VirusVariant,'ECDCClassification']
 		
 		LineageMutations = {}
 
-		if not pd.isnull(df.loc[VirusVariant,'LineageMutations']):
-			LineageMutations =  json.loads(df.loc[VirusVariant,'LineageMutations'])
+		if not pd.isnull(df_in.loc[VirusVariant,'LineageMutations']):
+			LineageMutations =  json.loads(df_in.loc[VirusVariant,'LineageMutations'])
 
 		LineageMutationsExamples = ''
 		if LineageMutations:
@@ -59,13 +59,63 @@ def DescribeVariantTable(df_in):
 
 		print(VariantInfo)
 
+def SingleQuery(df_in,query_pango_lineage=None,query_mutations=None,VOCVOI=True):
+
+	ECDCVariants = []
+
+	for VirusVariant in df_in.index:
+		
+		Sublineages = df_in.loc[VirusVariant,'included sub-lineages'].split('|')
+		ECDCClassification = df_in.loc[VirusVariant,'ECDCClassification']
+		LineageMutations = {}
+
+		if not pd.isnull(df_in.loc[VirusVariant,'LineageMutations']):
+			LineageMutations =  json.loads(df_in.loc[VirusVariant,'LineageMutations'])
+
+
+		if query_pango_lineage:
+
+			if query_pango_lineage in Sublineages:
+				ECDCVariants.append(VirusVariant+' ('+ECDCClassification+')')
+
+		if query_mutations and LineageMutations:
+
+			query_mutations = set([x.strip(' ') for x in query_mutations.split(',')])
+
+			if not query_pango_lineage:
+				query_pango_lineage = 'any_pango_lineage'
+
+			if query_pango_lineage in LineageMutations.keys():
+				required_mutations = set(LineageMutations[query_pango_lineage].split('+'))
+				
+				if len(required_mutations - query_mutations) == 0:
+					ECDCVariants.append(VirusVariant+' ('+ECDCClassification+')')
+
+	if VOCVOI and len(ECDCVariants) > 0:
+		ECDCVariants = [ECDCVariants[-1]]
+
+	return ','.join(ECDCVariants)
+
+
 if __name__ == "__main__":
 
 	#df=pd.read_csv(url,index_col='VirusVariant')
-	df=pd.read_csv(url_static,index_col='VirusVariant')
+	df_ECDC_variants=pd.read_csv(url_static,index_col='VirusVariant')
 
-	DescribeVariantTable(df)
+	#DescribeVariantTable(df_ECDC_variants)
 
+	SingleQuery(df_ECDC_variants)
 
+	ECDCVariants = SingleQuery(df_ECDC_variants,'Q.7')
+	print(ECDCVariants+'\n')
 
+	ECDCVariants = SingleQuery(df_ECDC_variants,'HK.22')
+	print(ECDCVariants+'\n')
 
+	#pango lineage with comma separated mutations that does not meet requirement
+	ECDCVariants = SingleQuery(df_ECDC_variants,'FD.1','Spike_F486P, Spike_F490S')
+	print(ECDCVariants+'\n')
+
+	#pango lineage with comma separated mutations that meets requirement
+	ECDCVariants = SingleQuery(df_ECDC_variants,'FD.1','Spike_F486P, Spike_F456L, Spike_F490S')
+	print(ECDCVariants+'\n')
