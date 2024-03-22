@@ -9,9 +9,11 @@ import sys
 
 #The current variant table (refer to https://www.ecdc.europa.eu/en/covid-19/variants-concern for timestamp)
 url='https://www.ecdc.europa.eu/sites/default/files/documents/PathogenVariant_public_mappings.csv'
+url_VUM = 'https://www.ecdc.europa.eu/sites/default/files/documents/PathogenVariant_public_mappings_VUM.csv'
 
+#These are similar files on git for testing purposes
 url_static = 'https://raw.githubusercontent.com/erikalmecdc/ECDC_variants/main/data/PathogenVariant_info.csv'
-url_static_VUM = 'https://raw.githubusercontent.com/erikalmecdc/ECDC_variants/main/data/PathogenVariant_info_VUM.csv'
+url_static_VUM = 'https://raw.githubusercontent.com/erikalmecdc/ECDC_variants/main/data/PathogenVariant_public_mappings_VUM.csv'
 
 
 limit = 3
@@ -61,6 +63,7 @@ def DescribeVariantTable(df_in):
 
 		print(VariantInfo)
 
+#Assigns ECDC status for VOI/VOC (also selected de-escalated) and VUM(s)
 def VariantsQuery(df_ECDC_variants_in,query_pango_lineage=None,query_mutations=None,df_ECDC_variants_VUM_in=pd.DataFrame()):
 
 	ECDCVariant = 'Not classified by ECDC'
@@ -96,20 +99,20 @@ def VariantsQuery(df_ECDC_variants_in,query_pango_lineage=None,query_mutations=N
 
 	if not df_ECDC_variants_VUM_in.empty:
 
-		for VirusVariant in df_ECDC_variants_in.index:
+		for VirusVariant in df_ECDC_variants_VUM_in.index:
 		
-			Sublineages = df_ECDC_variants_in.loc[VirusVariant,'included sub-lineages'].split('|')
-			ECDCClassification = df_ECDC_variants_in.loc[VirusVariant,'ECDCClassification']
+			Sublineages = df_ECDC_variants_VUM_in.loc[VirusVariant,'included sub-lineages'].split('|')
+			ECDCClassification = df_ECDC_variants_VUM_in.loc[VirusVariant,'ECDCClassification']
 			LineageMutations = {}
 
-			if not pd.isnull(df_ECDC_variants_in.loc[VirusVariant,'LineageMutations']):
-				LineageMutations =  json.loads(df_ECDC_variants_in.loc[VirusVariant,'LineageMutations'])
+			if not pd.isnull(df_ECDC_variants_VUM_in.loc[VirusVariant,'LineageMutations']):
+				LineageMutations =  json.loads(df_ECDC_variants_VUM_in.loc[VirusVariant,'LineageMutations'])
 
 
 			if query_pango_lineage:
 
 				if query_pango_lineage in Sublineages:
-					ECDCVariant_VUM.append(VirusVariant+' ('+ECDCClassification+')')
+					ECDCVariants_VUM.append(VirusVariant+' ('+ECDCClassification+')')
 
 			if query_mutations and LineageMutations:
 
@@ -122,15 +125,18 @@ def VariantsQuery(df_ECDC_variants_in,query_pango_lineage=None,query_mutations=N
 					required_mutations = set(LineageMutations[query_pango_lineage].split('+'))
 				
 					if len(required_mutations - query_mutations) == 0:
-						ECDCVariant_VUM.append(VirusVariant+' ('+ECDCClassification+')')
+						ECDCVariants_VUM.append(VirusVariant+' ('+ECDCClassification+')')
+	else:
+		ECDCVariants_VUM = ['VUM status not examined']
 
 	if len(ECDCVariants_VUM) == 0:
-		ECDCVariants_VUM = 'Not classified by ECDC'
+		ECDCVariants_VUM = 'Not classified as a VUM by ECDC'
 	else:
-		'/'.join(ECDCVariants_VUM)
+		ECDCVariants_VUM = '/'.join(ECDCVariants_VUM)
 
 	return ECDCVariant,ECDCVariants_VUM
 
+#Multi assignment of ECDC classifications by GISAID EpiCoV patient status metadata input, file should have this format gisaid_hcov-19_2024_03_22_08.tsv
 def EpiCoVmetadataQuery(df_in,df_ECDC_variants_in):
 
 	df_in['ECDCClassification'] = ''
@@ -147,9 +153,7 @@ def EpiCoVmetadataQuery(df_in,df_ECDC_variants_in):
 
 	return df_in
 
-
-
-
+#Reading GISAID EpiCoV patient metadata from input folder
 def readInputFromEpiCoVmetadataFile():
 
 	EpiCoVmetadataFiles = sorted(glob('input/*.tsv'))
@@ -170,28 +174,36 @@ def readInputFromEpiCoVmetadataFile():
 
 if __name__ == "__main__":
 
-
+	#Collect variant statuses (Switch to the non-static variables to use up to date data)
 	df_ECDC_variants=pd.read_csv(url_static,index_col='VirusVariant')
-	df_ECDC_variants_VUM=pd.read_csv(url_static,index_col='VirusVariant')
+	df_ECDC_variants_VUM=pd.read_csv(url_static_VUM,index_col='VirusVariant')
 
-	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants,'Q.7')
-	print(ECDCVariant+'\n')
+	#Run this to get a detailed description of the tables
+	DescribeVariantTable(df_ECDC_variants)
 
-	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants,'HK.22')
-	print(ECDCVariant+'\n')
-
-	#pango lineage with comma separated mutations that does not meet requirement
-	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants,'FD.1','Spike_F486P, Spike_F490S',df_ECDC_variants_VUM)
-	print(ECDCVariant+'\n')
-
-	#pango lineage with comma separated mutations that does not meet requirement
-	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants,'XBB.1.5','Spike_L455F, Spike_F456L',df_ECDC_variants_VUM)
-	print(ECDCVariant+'\n')
+	#A single query of a de-escalated VOC, both VOI/VOC and VUM status
+	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants_in=df_ECDC_variants,query_pango_lineage='Q.7',df_ECDC_variants_VUM_in=df_ECDC_variants_VUM)
+	print(ECDCVariant)
 	print(ECDCVariantsVUM+'\n')
 
-	#pango lineage with comma separated mutations that meets requirement
-	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants,'FD.1','Spike_F486P, Spike_F456L, Spike_F490S')
+	#A single query for a variant monitored as a VOI during the production of the test data. Since VUM table is not provided this status is not examined
+	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants_in=df_ECDC_variants,query_pango_lineage='HK.22')
+	print(ECDCVariant)
+	print(ECDCVariantsVUM+'\n')
+
+	#A single query for using mutations that are not defining any variant
+	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants_in=df_ECDC_variants,query_pango_lineage='FD.1',query_mutations='Spike_F486P, Spike_F490S')
 	print(ECDCVariant+'\n')
+
+	#A single query for using mutations that are defining the VOI XBB.1.5-like+F456L
+	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants_in=df_ECDC_variants,query_pango_lineage='XBB.1.5',query_mutations='Spike_L455F, Spike_F456L')
+	print(ECDCVariant+'\n')
+
+	#A single query for a currently monitored VUM, notice that it counts as a de-escalated VOI BA.2 parent as well
+	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants_in=df_ECDC_variants,query_pango_lineage='BA.2.87.1',df_ECDC_variants_VUM_in=df_ECDC_variants_VUM)
+	print(ECDCVariant)
+	print(ECDCVariantsVUM+'\n')
+
 
 	df_EpiCoVmetadata,snapshot_date = readInputFromEpiCoVmetadataFile()
 

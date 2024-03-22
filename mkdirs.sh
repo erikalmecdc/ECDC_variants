@@ -1,0 +1,2 @@
+mkdir input
+mkdir output
