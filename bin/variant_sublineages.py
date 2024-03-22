@@ -15,6 +15,7 @@ url_VUM = 'https://www.ecdc.europa.eu/sites/default/files/documents/PathogenVari
 url_static = 'https://raw.githubusercontent.com/erikalmecdc/ECDC_variants/main/data/PathogenVariant_info.csv'
 url_static_VUM = 'https://raw.githubusercontent.com/erikalmecdc/ECDC_variants/main/data/PathogenVariant_public_mappings_VUM.csv'
 
+EpiPulse_template = pd.read_csv('data/NCOVVARIANT_template.csv',index_col='RecordId')
 
 limit = 3
 
@@ -64,10 +65,12 @@ def DescribeVariantTable(df_in):
 		print(VariantInfo)
 
 #Assigns ECDC status for VOI/VOC (also selected de-escalated) and VUM(s)
-def VariantsQuery(df_ECDC_variants_in,query_pango_lineage=None,query_mutations=None,df_ECDC_variants_VUM_in=pd.DataFrame()):
+def VariantsQuery(df_ECDC_variants_in,query_pango_lineage=None,query_mutations=None,df_ECDC_variants_VUM_in=pd.DataFrame(),recordid=None):
 
 	ECDCVariant = 'Not classified by ECDC'
 	ECDCVariants_VUM = []
+
+	VirusVariantDetected = ''
 
 	for VirusVariant in df_ECDC_variants_in.index:
 		
@@ -83,6 +86,7 @@ def VariantsQuery(df_ECDC_variants_in,query_pango_lineage=None,query_mutations=N
 
 			if query_pango_lineage in Sublineages:
 				ECDCVariant = VirusVariant+' ('+ECDCClassification+')'
+				VirusVariantDetected = VirusVariant
 
 		if query_mutations and LineageMutations:
 
@@ -96,6 +100,12 @@ def VariantsQuery(df_ECDC_variants_in,query_pango_lineage=None,query_mutations=N
 				
 				if len(required_mutations - query_mutations) == 0:
 					ECDCVariant = VirusVariant+' ('+ECDCClassification+')'
+					VirusVariantDetected = VirusVariant
+
+	if recordid and ECDCVariant != 'Not classified by ECDC':
+		EpiPulse_template.loc[recordid,'VirusVariant'] = VirusVariantDetected
+	elif recordid and query_pango_lineage:
+		EpiPulse_template.loc[recordid,'VirusVariantVirusVariantOther'] = query_pango_lineage
 
 	if not df_ECDC_variants_VUM_in.empty:
 
@@ -146,7 +156,7 @@ def EpiCoVmetadataQuery(df_in,df_ECDC_variants_in):
 
 		Pango_lineage = df_in.loc[index,'Lineage'].split(' ')[0]
 		AA_Substitutions = df_in.loc[index,'AA Substitutions'].replace('(','').replace(')','')
-		ECDCClassification , ECDCClassification_VUM = VariantsQuery(df_ECDC_variants_in,Pango_lineage,AA_Substitutions)
+		ECDCClassification , ECDCClassification_VUM = VariantsQuery(df_ECDC_variants_in,Pango_lineage,AA_Substitutions,recordid=index)
 
 		df_in.loc[index,'ECDCClassification'] = ECDCClassification
 		df_in.loc[index,'ECDCClassification_VUM'] = ECDCClassification_VUM
@@ -182,7 +192,8 @@ if __name__ == "__main__":
 	DescribeVariantTable(df_ECDC_variants)
 
 	#A single query of a de-escalated VOC, both VOI/VOC and VUM status
-	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants_in=df_ECDC_variants,query_pango_lineage='Q.7',df_ECDC_variants_VUM_in=df_ECDC_variants_VUM)
+	#Also a recordid is provided and activate addition to an EpiPulse/TESSy reporting sheet
+	ECDCVariant,ECDCVariantsVUM = VariantsQuery(df_ECDC_variants_in=df_ECDC_variants,query_pango_lineage='Q.7',df_ECDC_variants_VUM_in=df_ECDC_variants_VUM,recordid='Domestic_sample1')
 	print(ECDCVariant)
 	print(ECDCVariantsVUM+'\n')
 
@@ -212,3 +223,8 @@ if __name__ == "__main__":
 		outfile_EpiCoVmetadata = 'output/EpiCoVmetadata_'+str(snapshot_date)+'.xlsx'
 		df_EpiCoVmetadata.to_excel(outfile_EpiCoVmetadata)
 		print('ECDC variants assigned to '+outfile_EpiCoVmetadata)
+
+	if not EpiPulse_template.empty:
+		outfile_EpiPulse = 'output/EpiPulse_'+str(snapshot_date)+'.xlsx'
+		EpiPulse_template.to_excel(outfile_EpiPulse)
+		print('An EpiPulse/TESSy import has been written to '+outfile_EpiPulse)
