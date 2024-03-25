@@ -105,7 +105,7 @@ def VariantsQuery(df_ECDC_variants_in,query_pango_lineage=None,query_mutations=N
 	if recordid and ECDCVariant != 'Not classified by ECDC':
 		EpiPulse_template.loc[recordid,'VirusVariant'] = VirusVariantDetected
 	elif recordid and query_pango_lineage:
-		EpiPulse_template.loc[recordid,'VirusVariantVirusVariantOther'] = query_pango_lineage
+		EpiPulse_template.loc[recordid,'VirusVariantOther'] = query_pango_lineage
 
 	if not df_ECDC_variants_VUM_in.empty:
 
@@ -216,6 +216,7 @@ if __name__ == "__main__":
 	print(ECDCVariantsVUM+'\n')
 
 
+	#Instead of processing one entry, process arbitrary GISAID EpiCov metadata
 	df_EpiCoVmetadata,snapshot_date = readInputFromEpiCoVmetadataFile()
 
 	if not df_EpiCoVmetadata.empty:
