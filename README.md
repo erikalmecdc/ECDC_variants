@@ -7,4 +7,6 @@ A resulting excel sheet will be available in the "output" folder in addition to 
 
 Please note that the script reads data from a static link provided by ECDC, however this is currently (2024-03-25) only available on test data.
 
+You may run mkdirs.sh to make the folders necessary.
+
 Please contact Olov.Svartstrom@ecdc.europa.eu in case there are questions/issues.
